@@ -1,0 +1,148 @@
+---
+title: "Machine Learning_Assignment2"
+author: "谢嘉薪 2020111142"
+date: "最后编译于 `r format(Sys.time(), '%m/%d/%Y')`"
+output:
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+    number_sections: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r 全局参数设置, include=FALSE}
+knitr::opts_chunk$set(error=TRUE)
+```
+
+# 练习 & 第二次作业
+
+This question should be answered using the `Weekly` data set, which is part of the `ISLR2` package. It contains 1, 089 weekly returns for 21 years, from the beginning of 1990 to the end of 2010.
+
+1.  Produce some numerical and graphical summaries of the `Weekly` data. Do there appear to be any patterns?
+
+```{r, include=T, echo=T}
+library(ISLR2)
+library(tidyverse)
+data(Weekly)
+attach(Weekly)
+str(Weekly)
+
+summary(Weekly)
+
+cor(Weekly[,-9])
+
+pairs(Weekly)
+
+boxplot(Weekly[,2:8])
+
+ggplot(Weekly) +  
+  geom_point(mapping = aes(x=Year, y=Volume, color=Direction))
+
+ggplot(Weekly) +  
+  geom_point(mapping = aes(x=Lag1, y=Lag2, color=Direction))
+
+ggplot(Weekly) +
+  geom_histogram(aes(x=Lag2,fill=Direction),position = "dodge")
+
+```
+
+2.  Use the full data set to perform a logistic regression with `Direction` as the response and the five lag variables plus `Volume` as predictors. Use the summary function to print the results. Do any of the predictors appear to be statistically significant? If so, which ones?
+
+```{r, include=T, echo=T}
+glm.fit <- glm(
+    Direction ~ Lag1+Lag2+Lag3+Lag4+Lag5+Volume,
+    data = Weekly, family = binomial)
+summary(glm.fit)
+```
+
+> Lag2显著
+
+3.  Compute the confusion matrix and overall fraction of correct predictions. Explain what the confusion matrix is telling you about the types of mistakes made by logistic regression.
+
+```{r, include=T, echo=T}
+glm.probs <- predict(glm.fit, type='response')
+pred <- rep('Down', 1089)
+pred[glm.probs>.5] = 'Up'
+table(pred, Direction)
+mean(pred == Direction)
+```
+> 左上角的54表示真实值和预测值都为Down的有54个；右下角557表示真实值和预测值都为Up的有557个；右上角表示真实为Up，预测为Down的有48个，即假阴错误；左下角表示真实为Down，预测为Up的有430个，即假阳错误。
+
+4.  Now fit the logistic regression model using a training data period from 1990 to 2008, with `Lag2` as the only predictor. Compute the confusion matrix and the overall fraction of correct predictions for the held out data (that is, the data from 2009 and 2010).
+
+```{r, include=T, echo=T}
+
+train <- Weekly[Weekly['Year'] < 2009,]
+test <- Weekly[Weekly['Year'] >= 2009,]
+dim(train)
+dim(test)
+
+glm.fit <- glm(Direction~Lag2,
+               data=train,family=binomial)
+summary(glm.fit)
+
+glm.prob <- predict(glm.fit, test, type = 'response')
+glm.pred <- rep('Down', 104)
+glm.pred[glm.prob>0.5] <- 'Up'
+table (glm.pred, test$Direction)
+mean(glm.pred == test$Direction)
+
+```
+
+5.  Repeat 4. using LDA.
+
+```{r, include=T, echo=T}
+library(MASS)
+lda.fit <- lda(Direction~Lag2,
+              data=train)
+lda.fit
+lda.pred <- predict(lda.fit, test, type = 'response')
+table(lda.pred$class, test$Direction)
+mean(lda.pred$class == test$Direction)
+```
+
+6.  Repeat 4. using QDA.
+
+```{r, include=T, echo=T}
+qda.fit = qda(Direction ~ Lag2, data = train)
+qda.fit
+qda.pred <- predict(qda.fit, test, type = 'response')
+table(qda.pred$class, test$Direction)
+mean(qda.pred$class == test$Direction)
+```
+
+7.  Repeat 4. using KNN with K = 1. You can also experiment with values for K in the KNN classifier. (Hint: Use `knn()` in the `class` package.)
+
+```{r, include=T, echo=T}
+library(class)
+train.matrix = as.matrix(train['Lag2'])
+test.matrix = as.matrix(test['Lag2'])
+set.seed(2020111142)
+knn.pred = knn(train.matrix, test.matrix, train$Direction, k = 1)
+table(knn.pred, test$Direction)
+mean(knn.pred == test$Direction)
+
+```
+
+8.  Repeat 4. using naive Bayes.
+
+```{r, include=T, echo=T}
+library(e1071)
+nb.fit <- naiveBayes(Direction ~ Lag2, data = train)
+nb.fit
+nb.class <- predict(nb.fit, test)
+table(nb.class, test$Direction)
+mean(nb.class == test$Direction)
+```
+
+9.  Which of these methods appears to provide the best results on this data?
+
+> 根据混淆矩阵和准确率来看，Logistic回归和LDA方法准确率最高。
+
+**要求**
+
+-   11月11日周五晚24点截止上交，上交pdf文件（一定要pdf，否则无法批改，可以Knit直接生成或html转存）至邮箱：[lyfsufe\@163.com](mailto:lyfsufe@163.com){.email}
+-   务必创建一个新的Rmd文件，不要使用我们的教学文档直接上交作业
