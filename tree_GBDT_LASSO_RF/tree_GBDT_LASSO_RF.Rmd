@@ -1,0 +1,181 @@
+---
+title: "2020111142_谢嘉薪_Ass4"
+author: "Xie Jiaxin, 2020111142"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+# 练习 & 第四次作业
+
+1. This problem involves the `OJ` data set which is part of the `ISLR2` package.
+```{r,message=FALSE}
+library(ISLR2)
+library(tree)
+library(tidyverse)
+data(OJ,package = 'ISLR2')
+head(OJ)
+```
+(a) Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations.
+```{r,message=FALSE}
+set.seed(2020111142)
+train <- sample(1:nrow(OJ), 800)
+OJ.train <- OJ[train,]
+OJ.test <- OJ[-train,]
+```
+(b) Fit a tree to the training data, with `Purchase` as the response and the other variables as predictors. Use the `summary()` function to produce summary statistics about the tree, and describe the results obtained. What is the training error rate? How many terminal nodes does the tree have?
+```{r,message=FALSE}
+set.seed(2020111142)
+tree.OJ <- tree(Purchase~., OJ.train)
+summary(tree.OJ)
+```
+> 树中用作内部节点的变量为："LoyalCH" "SalePriceMM" "ListPriceDiff" "PriceDiff" 
+
+> 叶节点的数量为：7
+
+> 训练误差为：0.1575
+
+(c) Type in the name of the tree object in order to get a detailed text output. Pick one of the terminal nodes, and interpret the information displayed.
+```{r,message=FALSE}
+tree.OJ
+```
+>  4) LoyalCH < 0.276142 160  120.60 MM ( 0.12500 0.87500 ) * 表示分类的准则为LoyalCH < 0.276142，节点中的观测值数量为160，偏差为120.6，节点的总体预测为MM，节点中观测值取MM的比例为0.125，取CH的比例为0.875
+
+(d) Create a plot of the tree, and interpret the results.nodes, and interpret the information displayed.
+```{r,message=FALSE}
+plot(tree.OJ)
+text(tree.OJ, pretty = 0)
+```
+
+> 该图展示了树的结构，且每个节点上有其分类准则，每个叶节点对应的类别也展示出来了。同时可以看出LoyalCH是影响最大的变量，因为其节点所在位置靠近根部。
+
+(e) Predict the response on the test data, and produce a confusion matrix comparing the test labels to the predicted test labels. What is the test error rate?
+```{r,message=FALSE}
+tree.pred <- predict(tree.OJ,OJ.test,type = "class")
+table(tree.pred, OJ.test$Purchase)
+error <- 1-mean(tree.pred == OJ.test$Purchase)
+error
+```
+
+(f) Apply the `cv.tree()` function to the training set in order to determine the optimal tree size.
+```{r,message=FALSE}
+set.seed(2020111142)
+cv.OJ <- cv.tree(tree.OJ, FUN = prune.misclass)
+cv.OJ
+```
+
+(g) Produce a plot with tree size on the x-axis and cross-validated classification error rate on the y-axis.
+```{r,message=FALSE}
+par(mfrow = c(1, 2))
+plot(cv.OJ$size, cv.OJ$dev, type = "b")
+plot(cv.OJ$k, cv.OJ$dev, type = "b")
+```
+
+(h) Which tree size corresponds to the lowest cross-validated classification error rate?
+
+> 7
+
+(i) Produce a pruned tree corresponding to the optimal tree size obtained using cross-validation. If cross-validation does not lead to selection of a pruned tree, then create a pruned tree with five terminal nodes.
+```{r,message=FALSE}
+prune.OJ <- prune.misclass(tree.OJ, best = 5)
+plot(prune.OJ)
+text(prune.OJ, pretty = 0)
+```
+
+
+(j) Compare the training error rates between the pruned and unpruned trees. Which is higher?
+```{r,message=FALSE}
+summary(prune.OJ)
+```
+> pruned trees is higher
+
+(k) Compare the test error rates between the pruned and unpruned trees. Which is higher?
+```{r,message=FALSE}
+prune.tree.pred <- predict(prune.OJ,OJ.test,type = "class")
+table(prune.tree.pred, OJ.test$Purchase)
+error.prune <- 1-mean(prune.tree.pred == OJ.test$Purchase)
+error.prune
+```
+> pruned trees is higher
+
+2. We now use boosting to predict `Salary` in the `Hitters` data set.
+```{r,message=FALSE}
+data("Hitters")
+head(Hitters$Salary)
+```
+
+(a) Remove the observations for whom the salary information is unknown, and then log-transform the salaries.
+```{r,message=FALSE}
+sum(is.na(Hitters))
+sum(is.na(Hitters$Salary))
+Hitters <- Hitters %>%
+  na.omit(Hitters) %>%
+  mutate(Salary = log(Salary))
+head(Hitters$Salary)
+```
+
+(b) Create a training set consisting of the first 200 observations, and a test set consisting of the remaining observations.
+```{r,message=FALSE}
+Hitters.train <- Hitters[1:200,]
+Hitters.test <- Hitters[-(1:200),]
+```
+
+(c) Perform boosting on the training set with 1,000 trees for a range of values of the shrinkage parameter λ. Produce a plot with different shrinkage values on the x-axis and the corresponding training set MSE on the y-axis.
+```{r,message=FALSE}
+library(gbm)
+set.seed(2020111142)
+
+mse.train <- 0
+mse.test <- 0
+shrinkage <- seq(0.1,1,by=0.1)
+
+for (i in 1:length(shrinkage)) {
+  boost.Hitters <- gbm(Salary~., data = Hitters.train, distribution = "gaussian", n.trees = 1000, shrinkage = 0.2)
+  train.pred <- predict(boost.Hitters,data = Hitters.train)
+  test.pred <- predict(boost.Hitters,newdata = Hitters.test)
+  mse.train[i] <- mean((train.pred - Hitters.train$Salary)^2)
+  mse.test[i] <- mean((test.pred - Hitters.test$Salary)^2)
+}
+
+plot(shrinkage,mse.train,type = "b")
+```
+
+(d) Produce a plot with different shrinkage values on the x-axis and the corresponding test set MSE on the y-axis.
+```{r,message=FALSE}
+plot(shrinkage,mse.test,type = "b")
+```
+
+(e) Compare the test MSE of boosting to the test MSE that results from applying linear regression and LASSO.
+```{r,message=FALSE}
+library(glmnet)
+lm.Hitters <- lm(Salary~., data = Hitters.train)
+lm.pred <- predict(lm.Hitters,newdata = Hitters.test)
+mse.lm <- mean((lm.pred - Hitters.test$Salary)^2)
+mse.lm
+
+x <- model.matrix(Salary~., data = Hitters.train)[,-1]
+x.test <- model.matrix(Salary~., data = Hitters.test)[,-1]
+lasso.Hitters <- glmnet(x,y=Hitters.train$Salary,alpha = 1)
+lasso.pred <- predict(lasso.Hitters,newx = x.test)
+mse.lasso <- mean((lasso.pred - Hitters.test$Salary)^2)
+mse.lasso
+
+best.mse <- min(mse.test,mse.lm,mse.lasso)
+best.mse
+```
+
+(f) Which variables appear to be the most important predictors in the boosted model?
+```{r,message=FALSE}
+summary(boost.Hitters)
+```
+
+(g) Now apply bagging to the training set. What is the test set MSE for this approach?
+```{r,message=FALSE}
+library(randomForest)
+set.seed(2020111142)
+bag.Hitters <- randomForest(Salary~., data = Hitters.train, mtry = 19, ntree = 1000)
+bag.pred <- predict(bag.Hitters, Hitters.test)
+mse.bag <- mean((bag.pred - Hitters.test$Salary)^2)
+mse.bag
+```
