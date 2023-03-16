@@ -1,2 +1,5 @@
 # ML2022
-Machine Learning Assignment
+**机器学习课程作业**
+
+- Assignment score：A*5
+- Final score：93 (TOP3)
